@@ -21,7 +21,6 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import logging
 import os
 import sqlite3
@@ -32,18 +31,18 @@ from .sqlite_storage import SQLiteStorage
 log = logging.getLogger(__name__)
 
 USERNAMES_SCHEMA = """
-CREATE TABLE usernames
+CREATE TABLE IF NOT EXISTS usernames
 (
     id       INTEGER,
     username TEXT,
     FOREIGN KEY (id) REFERENCES peers(id)
 );
 
-CREATE INDEX idx_usernames_username ON usernames (username);
+CREATE INDEX IF NOT EXISTS idx_usernames_username ON usernames (username);
 """
 
 UPDATE_STATE_SCHEMA = """
-CREATE TABLE update_state
+CREATE TABLE IF NOT EXISTS update_state
 (
     id   INTEGER PRIMARY KEY,
     pts  INTEGER,
@@ -59,7 +58,6 @@ class FileStorage(SQLiteStorage):
 
     def __init__(self, name: str, workdir: Path):
         super().__init__(name)
-
         self.database = workdir / (self.name + self.FILE_EXTENSION)
 
     def _vacuum(self):
@@ -84,11 +82,10 @@ class FileStorage(SQLiteStorage):
 
     def _update_from_five_impl(self):
         with self.conn:
-            self.conn.executescript("CREATE INDEX idx_usernames_id ON usernames (id);")
+            self.conn.executescript("CREATE INDEX IF NOT EXISTS idx_usernames_id ON usernames (id);")
 
     def _connect_impl(self, path):
         self.conn = sqlite3.connect(str(path), timeout=1, check_same_thread=False)
-
         with self.conn:
             self.conn.execute("PRAGMA journal_mode=WAL").close()
             self.conn.execute("PRAGMA synchronous=NORMAL").close()
@@ -134,3 +131,4 @@ class FileStorage(SQLiteStorage):
 
     async def delete(self):
         os.remove(self.database)
+        

@@ -34,7 +34,7 @@ from .. import utils
 
 # language=SQLite
 SCHEMA = """
-CREATE TABLE sessions
+CREATE TABLE IF NOT EXISTS sessions
 (
     dc_id     INTEGER PRIMARY KEY,
     api_id    INTEGER,
@@ -45,7 +45,7 @@ CREATE TABLE sessions
     is_bot    INTEGER
 );
 
-CREATE TABLE peers
+CREATE TABLE IF NOT EXISTS peers
 (
     id             INTEGER PRIMARY KEY,
     access_hash    INTEGER,
@@ -54,14 +54,14 @@ CREATE TABLE peers
     last_update_on INTEGER NOT NULL DEFAULT (CAST(STRFTIME('%s', 'now') AS INTEGER))
 );
 
-CREATE TABLE usernames
+CREATE TABLE IF NOT EXISTS usernames
 (
     id       INTEGER,
     username TEXT,
     FOREIGN KEY (id) REFERENCES peers(id)
 );
 
-CREATE TABLE update_state
+CREATE TABLE IF NOT EXISTS update_state
 (
     id   INTEGER PRIMARY KEY,
     pts  INTEGER,
@@ -70,7 +70,7 @@ CREATE TABLE update_state
     seq  INTEGER
 );
 
-CREATE TABLE version
+CREATE TABLE IF NOT EXISTS version
 (
     number INTEGER PRIMARY KEY
 );
@@ -80,7 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_peers_phone_number ON peers (phone_number);
 CREATE INDEX IF NOT EXISTS idx_usernames_id ON usernames (id);
 CREATE INDEX IF NOT EXISTS idx_usernames_username ON usernames (username);
 
-CREATE TRIGGER trg_peers_last_update_on
+CREATE TRIGGER IF NOT EXISTS trg_peers_last_update_on
     AFTER UPDATE
     ON peers
 BEGIN
@@ -89,7 +89,6 @@ BEGIN
     WHERE id = NEW.id;
 END;
 """
-
 
 def get_input_peer(peer_id: int, access_hash: int, peer_type: str):
     if peer_type in ["user", "bot"]:
@@ -110,7 +109,6 @@ def get_input_peer(peer_id: int, access_hash: int, peer_type: str):
         )
 
     raise ValueError(f"Invalid peer type: {peer_type}")
-
 
 class SQLiteStorage(Storage):
     VERSION = 6
@@ -263,27 +261,19 @@ class SQLiteStorage(Storage):
         with self.conn:
             return self.conn.execute(f"SELECT {attr} FROM sessions").fetchone()[0]
 
-    # async def _get(self, attr: str):
-    #     return await self.loop.run_in_executor(self.executor, self._get_impl, attr)
-
     async def _get(self):
         attr = inspect.stack()[2].function
         return await self.loop.run_in_executor(self.executor, self._get_impl, attr)
 
-    def _set_impl(self, attr: str, value: any):
+    def _set_impl(self, attr: str, value: Any):
         with self.conn:
             return self.conn.execute(f"UPDATE sessions SET {attr} = ?", (value,))
 
-    # async def _set(self, attr: str, value: Any):
-    #     return await self.loop.run_in_executor(self.executor, self._set_impl, attr, value)
-
     async def _set(self, value: Any):
         attr = inspect.stack()[2].function
-
         return await self.loop.run_in_executor(self.executor, self._set_impl, attr, value)
 
     async def _accessor(self, value: Any = object):
-        # return await self._get(attr) if value == object else await self._set(attr, value)
         return await self._get() if value == object else await self._set(value)
     
     def _get_version_impl(self):
@@ -320,3 +310,4 @@ class SQLiteStorage(Storage):
             return await self.loop.run_in_executor(self.executor, self._get_version_impl)
         else:
             return await self.loop.run_in_executor(self.executor, self._set_version_impl, value)
+            
